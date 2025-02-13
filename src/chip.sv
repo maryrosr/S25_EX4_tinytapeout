@@ -12,9 +12,10 @@ module my_chip (
     // DO NOT change the I/O header of this design
 
     wire [6:0] led_out;
-    assign io_out[6:0] = led_out;
+    assign io_out[6:0] = led_out; 
 
 
+    
     logic [WIDTH-1:0] low_q, high_q;
     logic seq_error, comb_error;
     enum logic [1:0] {Wait = 2'b0, Go = 2'b1, Error = 2'b10} curr_state, next_state;
