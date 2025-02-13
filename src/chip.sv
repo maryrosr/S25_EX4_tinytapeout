@@ -14,35 +14,69 @@ module my_chip (
     wire [6:0] led_out;
     assign io_out[6:0] = led_out;
 
-    // external clock is 1000Hz, so need 10 bit counter
-    reg [9:0] second_counter;
-    reg [3:0] digit;
 
-    always @(posedge clock) begin
-        // if reset, set counter to 0
-        if (reset) begin
-            second_counter <= 0;
-            digit <= 0;
-        end else begin
-            // if up to 16e6
-            if (second_counter == 1000) begin
-                // reset
-                second_counter <= 0;
-
-                // increment digit
-                digit <= digit + 1'b1;
-
-                // only count from 0 to 9
-                if (digit == 9)
-                    digit <= 0;
-
-            end else
-                // increment counter
-                second_counter <= second_counter + 1'b1;
-        end
+    logic [WIDTH-1:0] low_q, high_q;
+    logic seq_error, comb_error;
+    enum logic [1:0] {Wait = 2'b0, Go = 2'b1, Error = 2'b10} curr_state, next_state;
+    always_comb begin
+        next_state = curr_state;
+        debug_error = 1'b0;
+        range = 'b0;
+        case (curr_state) 
+            Wait: begin
+                if(finish) begin
+                    next_state = Error;
+                    debug_error = 1'b1;
+                end
+                else if (go)
+                    next_state = Go;
+            end
+            Go: begin
+                if (finish) begin // assert
+                  if(data_in < low_q && data_in > high_q) begin
+                        range = 'b0;
+                    end
+                  else if (data_in > high_q) begin
+                        range = data_in - low_q;
+                    end
+                  else if(data_in < low_q) begin
+                        range = high_q - data_in;
+                    end
+                    else begin
+                        range = high_q - low_q;
+                    end
+                    next_state = Wait;
+                end
+            end
+            Error: begin
+                if (go)
+                    next_state = Go;
+				
+                debug_error = 1'b1;
+            end
+        endcase
     end
-
+    always_ff @(posedge clock, posedge reset) begin
+        if(reset) begin
+            curr_state <= Wait;
+            low_q <= 'b0;
+            high_q <= 'b0;
+        end
+        else begin
+          if((curr_state == Error || curr_state == Wait) && next_state == Go) begin
+                low_q <= data_in;
+                high_q <= data_in;
+            end
+            else if (curr_state == Go) begin
+              if(data_in < low_q) low_q <= data_in;
+              if(data_in > high_q) high_q <= data_in;
+            end
+          curr_state <= next_state;
+        end
+    	
+        
+    end
     // instantiate segment display
-    seg7 seg7(.counter(digit), .segments(led_out));
+    seg7 seg7(.counter(range), .segments(led_out));
 
 endmodule
