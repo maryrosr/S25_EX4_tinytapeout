@@ -21,6 +21,10 @@ module my_chip (
     logic debug_error;
     logic [3:0] low_q, high_q;
     logic seq_error, comb_error;
+
+    assign data_in = io_in[3:0];
+    assign go = io_in[4];
+    assign finish = io_in[5];
     enum logic [1:0] {Wait = 2'b0, Go = 2'b1, Error = 2'b10} curr_state, next_state;
     always_comb begin
         next_state = curr_state;
